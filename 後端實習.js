@@ -15,15 +15,17 @@ axios.get(url)
     // 初始化變量來跟蹤性能指標
     let initialCapital = 8000;  // 初始本金（以USDT計）
     let finalCapital = initialCapital;
-    let totalTrades = 80;
+    let totalTrades = 0;
     let winningTrades = 0;
     let totalPnl = 0;
 
     // 計算性能指標
     tradingHistory.forEach(trade => {
       let pnl = parseFloat(trade.fillPnl);
+      let fee = parseFloat(trade.fee);
       if (pnl !== 0) {
-        finalCapital += pnl;
+        totalTrades++;
+        finalCapital += pnl + fee;
         //console.log(`pnl: ${pnl.toFixed(3)}%`);
         //console.log(`finalCapital: ${finalCapital.toFixed(3)}%`);
         if (pnl > 0) {
@@ -42,11 +44,13 @@ axios.get(url)
 
     let maxDrawdown = 0;
     let peak = -Infinity;
+
     finalCapital = initialCapital;
     tradingHistory.forEach(trade => {
     let pnl = parseFloat(trade.fillPnl);
+    let fee = parseFloat(trade.fee);
     if (pnl !== 0) {
-        finalCapital += pnl;
+        finalCapital += pnl + fee;
         peak = Math.max(peak, finalCapital);
         let drawdown = (peak - finalCapital) / peak *100;
         maxDrawdown = Math.max(maxDrawdown, drawdown);
@@ -55,19 +59,42 @@ axios.get(url)
     console.log(`最大回撤（MDD）: ${maxDrawdown.toFixed(10)}%`);
 
 
+    winningTrades = 0;
+    let losingTrades = 0;
+    // 計算性能指標
+    tradingHistory.forEach(trade => {
+      let pnl = parseFloat(trade.fillPnl);
+      if (pnl !== 0) {
+        if (pnl > 0) {
+          winningTrades++;
+        } else {
+          losingTrades++;
+        }
+      }
+    });
+    let oddsRatio = winningTrades / losingTrades*100;
+    console.log(`勝敗比(Odds Ratio): ${oddsRatio.toFixed(2)}%`);
+
+
+
     let profitFactor = Math.abs(totalPnl) / Math.abs(totalPnl - initialCapital)*100;
 
     console.log(`獲利因子（Profit Factor）: ${profitFactor.toFixed(10)}%`);
 
-    let returns = (finalCapital - initialCapital) / initialCapital;
-    let dailyReturns = Math.pow(1 + returns, 1 / totalTrades) - 1;
-    let dailyPnl = tradingHistory.map(trade => parseFloat(trade.fillPnl));
-    let dailyVolatility = Math.sqrt(dailyPnl.reduce((acc, pnl) => acc + Math.pow(pnl - dailyReturns, 2), 0) / totalTrades);
-    let sharpeRatio = (dailyReturns / dailyVolatility)*100;
 
+    // 計算fillPnl的標準差
+    
+    // 計算fillPnl的平均值
+    const sumFillPnl = tradingHistory.reduce((acc, trade) => acc + parseFloat(trade.fillPnl), 0);
+    const avgFillPnl = sumFillPnl / tradingHistory.length;
 
-    console.log(`夏普比率（Sharpe Ratio）: ${sharpeRatio.toFixed(10)}%`);
-
+    const fillPnlData = tradingHistory.map(trade => parseFloat(trade.fillPnl));
+    const sumOfSquares = fillPnlData.reduce((acc, val) => acc + Math.pow(val - avgFillPnl, 2), 0);
+    const stdDev = Math.sqrt(sumOfSquares / fillPnlData.length);
+    // 輸出結果
+    sharpeRatio = (ROI-0.01)/stdDev;
+    console.log(`fillPnl的標準差：${stdDev.toFixed(10)}`);
+    console.log(`夏普比率（Sharpe Ratio）:${sharpeRatio.toFixed(10)}`);
 
 
 
